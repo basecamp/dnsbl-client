@@ -53,7 +53,8 @@ module DNSBL # :nodoc:
     # the two-level-tlds file lists most of the two level tlds, needed for hostname to domain normalization
     def initialize(config = YAML.safe_load(File.read("#{File.expand_path '../../data', __dir__}/dnsbl.yaml")),
                    two_level_tldfile = "#{File.expand_path '../../data', __dir__}/two-level-tlds",
-                   three_level_tldfile = "#{File.expand_path '../../data', __dir__}/three-level-tlds")
+                   three_level_tldfile = "#{File.expand_path '../../data', __dir__}/three-level-tlds",
+                   nameservers: Resolv::DNS::Config.new.nameservers)
       @dnsbls = config
       @timeout = 1.5
       @first_only = false
@@ -65,30 +66,20 @@ module DNSBL # :nodoc:
       File.open(three_level_tldfile).readlines.each do |l|
         @three_level_tld << l.strip
       end
+
       @sockets = []
-      config = Resolv::DNS::Config.new
-
-      # let's just the first nameserver in this version of the library
-      ip, port = config.nameservers.first
-
-      sock = UDPSocket.new
-      sock.connect ip, port
-      @sockets << sock
-      @socket_index = 0
+      self.nameservers = nameservers
     end
 
     # sets the nameservers used for performing DNS lookups in round-robin fashion
-    def nameservers=(nss = Resolv::DNS::Config.new.nameservers)
-      @sockets.each(&:close)
-      @sockets = []
+    def nameservers=(nss = nil)
+      @sockets.each(&:close).clear
+      @socket_index = 0
 
       # let's just the first nameserver in this version of the library
-      ip, port = nss.first
-
-      sock = UDPSocket.new
-      sock.connect ip, port
-      @sockets << sock
-      @socket_index = 0
+      if ns = Array(nss).first
+        @sockets << Addrinfo.udp(*ns).connect
+      end
     end
 
     # Converts a hostname to the domain: e.g., www.google.com => google.com, science.somewhere.co.uk => somewhere.co.uk
