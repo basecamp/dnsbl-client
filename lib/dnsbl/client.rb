@@ -149,7 +149,7 @@ module DNSBL # :nodoc:
             @socket_index %= @sockets.length
             sent += 1
           rescue StandardError => e
-            puts "error for #{name}: e"
+            puts "error for #{name}: #{e}"
             puts e.backtrace.join("\n")
           end
         end
