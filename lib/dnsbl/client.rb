@@ -51,21 +51,15 @@ module DNSBL # :nodoc:
     # initialize a new DNSBL::Client object
     # the config file automatically points to a YAML file containing the list of DNSBLs and their return codes
     # the two-level-tlds file lists most of the two level tlds, needed for hostname to domain normalization
-    def initialize(config = YAML.safe_load(File.read("#{File.expand_path '../../data', __dir__}/dnsbl.yaml")),
-                   two_level_tldfile = "#{File.expand_path '../../data', __dir__}/two-level-tlds",
-                   three_level_tldfile = "#{File.expand_path '../../data', __dir__}/three-level-tlds",
+    def initialize(dnsbls: YAML.safe_load(File.read("#{File.expand_path '../../data', __dir__}/dnsbl.yaml")),
+                   two_level_tldfile: "#{File.expand_path '../../data', __dir__}/two-level-tlds",
+                   three_level_tldfile: "#{File.expand_path '../../data', __dir__}/three-level-tlds",
                    nameservers: Resolv::DNS::Config.new.nameservers)
-      @dnsbls = config
+      @dnsbls = dnsbls
       @timeout = 1.5
       @first_only = false
-      @two_level_tld = []
-      @three_level_tld = []
-      File.open(two_level_tldfile).readlines.each do |l|
-        @two_level_tld << l.strip
-      end
-      File.open(three_level_tldfile).readlines.each do |l|
-        @three_level_tld << l.strip
-      end
+      @two_level_tldfile = two_level_tldfile
+      @three_level_tldfile = three_level_tldfile
 
       @sockets = []
       self.nameservers = nameservers
@@ -90,8 +84,8 @@ module DNSBL # :nodoc:
       # grab the last two parts of the domain
       dom = parts[-2, 2].join '.'
       # if the dom is in the two_level_tld list, then use three parts
-      dom = parts[-3, 3].join '.' if @two_level_tld.index dom
-      dom = parts[-4, 4].join '.' if @three_level_tld.index dom
+      dom = parts[-3, 3].join '.' if two_level_tld.index dom
+      dom = parts[-4, 4].join '.' if three_level_tld.index dom
       dom
     end
 
@@ -262,6 +256,24 @@ module DNSBL # :nodoc:
         type = types.join ','
         "days=#{days},score=#{threatscore},type=#{type}"
       end
+    end
+
+    def two_level_tld
+      @two_level_tld ||=
+        if @two_level_tldfile
+          File.readlines(@two_level_tldfile).map(&:strip)
+        else
+          []
+        end
+    end
+
+    def three_level_tld
+      @three_level_tld ||=
+        if @three_level_tldfile
+          File.readlines(@three_level_tldfile).map(&:strip)
+        else
+          []
+        end
     end
   end
 end
